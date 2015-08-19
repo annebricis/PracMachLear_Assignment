@@ -1,0 +1,117 @@
+# Practical Machine Learning - Assignment
+Submitted by Anne Bricis
+
+## Executive Summary
+A study was undertaken on a set of measurements recorded during an exercise routine.  The objective of the study was to see if the measurements taken could be used to predict the manner in which the exercise had been performed.
+
+
+## Data preparation
+The dataset contains measurements for 6 individuals who had fitted devices on the arm, forearm, belt and dumbbell.  The measurements were captured while the individual performed a set of 10 repetitions of an arm curl.  The arm curl was performed in 5 different ways: A=correct method, B=elbow to front, C=lift dumbbell halfway, D=lower dumbbell halfway and E=hips to front.  
+
+After downloading, the training dataset was analysed (Appendix 1).  This contained 160 variables (including the outcome), a number of which had a majority of missing values  A subset of the data set was created using only the columns that were considered relevant, ie excluding columns with missing values as well as date columns.  The reduced data set contains only 54 variables (including the outcome) which was considered to be more manageable.  This reduced set was further split into two, so that local training and testing sets could be applied.  
+
+## Model selection
+A number of models were developed and analysed.  
+
+### Model 1 - Basic reduced variable model
+First a model was fitted that used all the variables in the reduced data set as presented (Appendix 2).  However this resulted in a poor model which did not even provide for the outcome "D".
+
+### Model 2 - Preprocessing with principal components analysis
+Principal components analysis was then applied over all the variables in the reduced set except the user and outcome (Appendix 3) and this produced better results in that outcome "D" was considered, but the error rate was very high in that over half of the outcomes on the training data set were predicted incorrectly.  
+
+Plotting the results of the PCA however identified interesting patterns in the data.  When plotted by user, there were four distinct groups with a single user in each, plus a fifth group which overlapped two users.  When plotted by outcome, it was very hard to distinguish any difference between the correct method and any of the "incorrect" ones.  
+
+### Model 3 - Model by user
+Investigating the data further, attempts to model by individual user were unsuccessful as the resulting models were individually worse than that provided by Model 2.
+
+## Cross validation
+The validation data set was created using 30% of the original training data, which was set aside to test the model.  The results of the model using the training data were poor, so there was no expectation of much improvement with the validation set.
+
+## Expected "out of sample" error
+With the "best" model found so far (Model 2), the value for in-sample-errors is 9482/19622 = 0.48 and the value for out-of-sample-error is 2999/4904 = 0.61.  
+
+## Results and conclusion
+A suitable model was not found as part of this analysis, however by chance the test results (x20) provided a higher success rate than then training and local testing.  Further analysis is required to improve the model.
+
+## Reference
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+## Appendices
+
+### Appendix 1 - Data source
+
+The data files were downloaded from the corresponding Groupware website (http://groupware.les.inf.puc-rio.br/har) as the "Weight Lifting Exercise Dataset".  The training and test data were downloaded using the following r commands:
+
+```{r download}
+##train<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "train.csv")
+##test<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "test.csv")
+```
+
+The training data file was reduced to remove superfluous variables (dates, mainly missing values) and further split into two for training and testing.  
+
+```{r load}
+trainAll<-read.csv("train.csv")
+testAll<-read.csv("test.csv")
+trainSmall<-trainAll[,-c(1,3:7,12:36,50:59,69:83,87:101, 103:112,125:139,141:150)]
+names(trainSmall)
+
+library(caret)
+inTrain<-createDataPartition(y=trainSmall$classe, p=0.75, list=FALSE)
+train<-trainSmall[inTrain,]
+test<-trainSmall[-inTrain,]
+```
+
+### Appendix 2 - Model 1 analysis - reduce data set
+```{r model1}
+modFitRed<-train(classe~.,method="rpart",data=train)
+print(modFitRed$finalModel)
+confusionMatrix(train$classe, predict(modFitRed,train))
+```
+
+### Appendix 3 - Model 2 analysis - PCA
+
+```{r model2}
+preProc<-preProcess(train[-c(1,54)], method="pca",pcaComp=2)
+trainPCA<-predict(preProc, train[-c(1,54)])
+modFitPCA<-train(train$classe~.,method="rpart",data=trainPCA)
+print(modFitPCA$finalModel)
+
+confusionMatrix(train$classe, predict(modFitPCA,trainPCA))
+qplot(trainPCA[,1],trainPCA[,2],colour=classe,data=train)
+qplot(trainPCA[,1],trainPCA[,2],colour=user_name,data=train)
+
+predPCA<-predict(modFitPCA,trainPCA)
+comparePCA<-data.frame("orig"=train$classe,"pred"=predPCA)
+diffPCA<-comparePCA[comparePCA$orig!=comparePCA$pred,]
+dim(diffPCA)
+```
+
+### Appendix 4 - Cross validation
+
+```{r validation}
+testPCA<-predict(preProc,test[-c(1,54)])
+confusionMatrix(test$classe, predict(modFitPCA,testPCA))
+predPCATest<-predict(modFitPCA,testPCA)
+comparePCATest<-data.frame("orig"=test$classe,"pred"=predPCATest)
+diffPCATest<-comparePCATest[comparePCATest$orig!=comparePCATest$pred,]
+dim(diffPCATest)
+```
+
+### Appendix 5 - Test results
+```{r test}
+testSmall<-testAll[,-c(1,3:7,12:36,50:59,69:83,87:101, 103:112,125:139,141:150)]
+testPCASmall<-predict(preProc,testSmall[-c(1,54)])
+answers=predict(modFitPCA,testPCASmall)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(answers)
+
+answers
+```

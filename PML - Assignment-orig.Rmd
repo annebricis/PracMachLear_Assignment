@@ -1,0 +1,58 @@
+# Practical Machine Learning - Assignment
+Submitted by Anne Bricis
+
+## Executive Summary
+A study was undertaken on a set of measurements recorded during an exercise routine.  The objective of the study was to see if the measurements taken could be used to predict the manner in which the exercise had been performed.
+
+
+## Load and tidy the files
+The dataset contains measurements for 6 individuals using devices on the arm, forearm, belt and dumbbell.  The measurements were captured while the individual performed a set of 10 repetitions of an arm curl.  The arm curl was performed in 5 different ways: A=correct method, B=elbow to front, C=lift dumbbell halfway, D=lower dumbbell halfway and E=hips to front.  
+
+After downloading, the training dataset was analysed.  A subset of the data was created using only the columns that were tidy, so columns with mainly missing/blank values were excluded.  This was then split into two, so that validation could be performed.
+```{r load}
+train<-read.csv("train.csv")
+test<-read.csv("test.csv")
+train2<-train[,-c(1,3,4,6,7,12:36,50:59,69:83,87:101, 103:112,125:139,141:150)]
+names(train2)
+
+library(caret)
+inTrain<-createDataPartition(y=train2$cvtd_timestamp, p=0.75, list=FALSE)
+train3<-train2[inTrain,]
+train4<-train2[-inTrain,]
+```
+
+## Model selection
+The number of variables was still quite large (more than 50) so the next step was to check for correlated predictors.
+```{r correlated}
+## create a matrix showing correlation for all numeric variables
+M<-abs(cor(train3[,-c(1,2,55)]))        ## exclude user_name, timestamp and classe
+diag(M)<-0                              ## set diagonal to zero (as each var has correlation of 1 with itself) 
+                                        ##                                      as need to check probability
+w<-which(M>0.8, arr.ind=T)              ## which has a correlation greater than 0.8
+tNames<-names(train3[-c(1,2,55)])       ## set up a vector of required names
+corr<-data.frame("X1"=dimnames(w)[[1]], "X2"=tn[w[,2]])    ## list of highly correlated variables
+
+train5<-train3[,-c(5,6,10:13,21,23,28,35,36,38,47,48)]
+```
+
+This resulted in dropping a further 14 variables from the training set.
+
+
+## Cross validation
+
+
+
+## Expected "out of sample" error
+In sample error: error rate on same data set used to build predictor (aka resubstitution error)
+Out of sample error: error rate on new data set (aka generalization error)
+OSE is the important one; should be ISE<OSE
+
+
+## Reference
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+The data files were downloaded from the corresponding Groupware website (http://groupware.les.inf.puc-rio.br/har) as the "Weight Lifting Exercise Dataset".  The training and test data were downloaded using the following r commands:
+```{r download}
+train<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "train.csv")
+test<-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "test.csv")
+```
